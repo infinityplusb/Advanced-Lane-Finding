@@ -17,17 +17,15 @@
 
 import pickle
 import numpy as np
+np.seterr(divide='ignore', invalid='ignore')
 import cv2
 import glob
 import matplotlib.pyplot as plt
 #%matplotlib qt
 
 def cal_undistort(img, objpoints, imgpoints):
-    # Use cv2.calibrateCamera() and cv2.undistort()
-#    gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
     ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, img.shape[::-1], None, None)
     undist = cv2.undistort(img, mtx, dist, None, mtx)
-    #undist = np.copy(img)  # Delete this line
     return undist
 
 # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
@@ -150,7 +148,6 @@ def thresholding(img, thresh=(20,100), sobel_kernel=3, s_thresh=(170,255)):
     sxy_binary = np.zeros_like(scaled_sobelxy)
     sxy_binary[(scaled_sobelxy >= thresh[0]) & (scaled_sobelxy <= thresh[1])] = 1
     scaled_sxy_binary = np.uint8(255*sxy_binary/np.max(sxy_binary))
-
     cv2.imshow("sx_binary", scaled_sxy_binary)
 
 
@@ -178,7 +175,7 @@ cv2.imshow("Debug 2", result2)
 
 #     Apply a perspective transform to rectify binary image ("birds-eye view").
 def calculate_M(image, x, y) :
-    persp = np.float32([ [560,450], [180,680], [1130,680], [720,450]])
+    persp = np.float32([ [580,450], [180,680], [1130,680], [740,450]])
     birdseye = np.float32([ [0,0], [0,y], [x,y], [x,0]])
     global_M = cv2.getPerspectiveTransform(persp, birdseye)
     return global_M
@@ -223,11 +220,11 @@ def find_lane_pixels(binary_warped):
 
     # HYPERPARAMETERS
     # Choose the number of sliding windows
-    nwindows = 9
+    nwindows = 15
     # Set the width of the windows +/- margin
-    margin = 100
+    margin = 150
     # Set minimum number of pixels found to recenter window
-    minpix = 50
+    minpix = 80
 
     # Set height of windows - based on nwindows above and image shape
     window_height = np.int(binary_warped.shape[0]//nwindows)
@@ -255,10 +252,8 @@ def find_lane_pixels(binary_warped):
         win_xright_high = rightx_current + margin  # Update this
         
         # Draw the windows on the visualization image
-        cv2.rectangle(out_img,(win_xleft_low,win_y_low),
-        (win_xleft_high,win_y_high),(0,255,0), 2) 
-        cv2.rectangle(out_img,(win_xright_low,win_y_low),
-        (win_xright_high,win_y_high),(0,255,0), 2) 
+        cv2.rectangle(out_img,(win_xleft_low,win_y_low),(win_xleft_high,win_y_high),(0,255,0), 2) 
+        cv2.rectangle(out_img,(win_xright_low,win_y_low),(win_xright_high,win_y_high),(0,255,0), 2) 
         
         ### TO-DO: Identify the nonzero pixels in x and y within the window ###
         good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & 
@@ -292,20 +287,18 @@ def find_lane_pixels(binary_warped):
     rightx = nonzerox[right_lane_inds]
     righty = nonzeroy[right_lane_inds]
 
-    return leftx, lefty, rightx, righty, out_img
+    return leftx, lefty, rightx, righty, left_lane_inds, right_lane_inds, out_img
 
 
 def fit_polynomial(binary_warped):
     # Find our lane pixels first
-    leftx, lefty, rightx, righty, out_img = find_lane_pixels(binary_warped)
+    leftx, lefty, rightx, righty, left_lane_inds, right_lane_inds, out_img = find_lane_pixels(binary_warped)
 
     ### TO-DO: Fit a second order polynomial to each using `np.polyfit` ###
     left_fit = np.polyfit(lefty, leftx, 2)
     right_fit = np.polyfit(righty, rightx, 2)
-    
-#    ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0])
-#    left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
-#    right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
+#    print(left_fit)
+#    print(right_fit)
 
     # Generate x and y values for plotting
     ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
@@ -327,16 +320,133 @@ def fit_polynomial(binary_warped):
     plt.plot(left_fitx, ploty, color='yellow')
     plt.plot(right_fitx, ploty, color='yellow')
 
-    return out_img
+    return out_img, left_fitx, left_lane_inds, right_fitx, right_lane_inds, ploty
 
 
-out_img = fit_polynomial(top_down)
+
+out_img, left_fitx, left_lane_inds, right_fitx, right_lane_inds, ploty = fit_polynomial(top_down)
+left_x = np.array(left_fitx)
+right_x = np.array(right_fitx)
+
+#print(left_fitx)
+#print(ploty)
+#print(left_x)
+#print(right_fitx)
+
+left_points = np.vstack((left_x, ploty)).T
+left_points = left_points.reshape((-1,1,2))
+right_points = np.vstack((right_x, ploty)).T
+right_points = right_points.reshape((-1,1,2))
+#print("Left points")
+#print(left_points)
+#print("Right points")
+#print(right_points)
+
+#print(left_points[1])
+#print(left_points[1][1])
+cv2.polylines(out_img, np.int32([left_points]), isClosed=False, color= (255,255,0))
+cv2.polylines(out_img, np.int32([right_points]), isClosed=False, color= (255,255,0))
+
+#pts = np.array([[195,327],[378,327],[286,144]])
+#print(pts)
+#pts = pts.reshape((-1,1,2))
+#print(pts)
+#cv2.polylines(out_img,np.int32([pts]),True,(0,0,255),3)
+#cv2.namedWindow('img')
+#cv2.imshow('img', out_img)
 
 cv2.imshow("finding lanes", out_img)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+#cv2.waitKey(0)
+
+
+#pts = np.vstack((x,B)).astype(np.int32).T
+#cv2.polylines(frame, [pts], isClosed=False, color=(255,0,0))
+#pts = np.vstack((x,G)).astype(np.int32).T
+#cv2.polylines(frame, [pts], isClosed=False, color=(0,255,0))
+#pts = np.vstack((x,R)).astype(np.int32).T
+#cv2.polylines(frame, [pts], isClosed=False, color=(0,0,255))
+
+#writer.write(frame)
+
+#cv2.imshow('frame', frame)
+
 
 
 #     Determine the curvature of the lane and vehicle position with respect to center.
+def compute_curvature(left_fit, right_fit, leftx, rightx, ploty): #, left_fitx, right_fitx): #, leftx, lefty, rightx, righty):
+ 
+        # Define conversions in x and y from pixels space to meters
+        m_per_y_pix = 30.0/720 # meters per pixel in y dimension
+        m_per_x_pix = 3.7/700 # meters per pixel in x dimension
+ 
+        y_eval = np.max(ploty)
+ 
+#       print(leftx)
+#        print("x squared")
+#        print(ploty)
+#        print(m_per_y_pix)
+#        print(ploty*m_per_y_pix)
+#        print("x ")
+#        print(leftx*m_per_x_pix)
+#        fit_left_curve = np.polyfit(ploty * m_per_y_pix, left_fitx * m_per_x_pix, 2)
+        left_fit_cr = np.polyfit((ploty*m_per_y_pix), (leftx*m_per_x_pix), 2, 2)
+        right_fit_cr = np.polyfit(ploty*m_per_y_pix, rightx*m_per_x_pix, 2)
+
+        left_curverad = ((1 + (2*left_fit_cr[0]*y_eval + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
+        right_curverad = ((1 + (2*right_fit_cr[0]*y_eval + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
+ 
+#        curverad_left = ((1 + (2 * left_fit[0] * y_eval / 2. + fit_left_curve[1]) ** 2) ** 1.5) / np.absolute(2 * fit_left_curve[0])
+#        fit_right_curve = np.polyfit(ploty * m_per_y_pix, right_fitx * m_per_x_pix, 2)
+#        curverad_right = ((1 + (2 * left_fit[0] * y_eval / 2. + fit_right_curve[1]) ** 2) ** 1.5) / np.absolute(2 * fit_right_curve[0])
+ 
+#        print("Right")
+#        print(curverad_right)
+#        print("Left")
+#        print(curverad_left)
+        return left_curverad, right_curverad
+#        return 1
+
+
+#lane_curve = compute_curvature(left_x, right_x, ploty, left_fitx, right_fitx)
+left_curverad, right_curverad = compute_curvature(left_fitx, right_fitx, left_x, right_x, ploty )
+print(left_curverad)
+print(right_curverad)
+
+
+
+
+#cv2.polylines(out_img, np.int32([lane_curve]), isClosed=False, color= (255,255,0))
+cv2.imshow("lane_curve", out_img)
+
 #     Warp the detected lane boundaries back onto the original image.
+def fill_poly(img, left, right):
+#    right_fit_inverse = right_fit[::-1]
+#    print("Left")
+#    print(left_x)
+#    print("Right")
+#    print(right_fit)
+#    print("Right Inverted")
+#    print(right_fit_inverse)
+    both_lines = np.concatenate((left, np.flipud(right)), axis=0)
+    print(both_lines)
+    cv2.fillPoly(img, [both_lines.astype(np.int32)],(0,255,0))
+#    poly_points = np.column_stack((left_x, right_fit_inverse)).T
+#    cv2.fillPoly(img, poly_points, 255)
+    return img
+
+
+with_poly = fill_poly(out_img, left_points, right_points)
+
+cv2.imshow("lane_curve_w_poly", with_poly)
+#cv2.waitKey(0)
+
+
+while(1):
+    k = cv2.waitKey(33)
+    if k==27:    # Esc key to stop
+        break
+cv2.destroyAllWindows()
+
+
+
 #     Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
