@@ -81,63 +81,107 @@ for fname in images:
 
 #     Use color transforms, gradients, etc., to create a thresholded binary image.
 def thresholding(img, thresh=(20,100), sobel_kernel=3, s_thresh=(170,255)):
-    img = np.copy(img)
     ##### Threshold color channel
     # Convert to HLS color space and separate the S channel
     hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
     h_channel = hls[:,:,0]
-    L = hls[:,:,1]
     s_channel = hls[:,:,2]
     
-    s_thresh = (90, 255)
+    
     s_binary = np.zeros_like(s_channel)
     s_binary[(s_channel > s_thresh[0]) & (s_channel <= s_thresh[1])] = 1
+
     scaled_s_binary = np.uint8(255*s_binary/np.max(s_binary))
 
     h_thresh = (15, 100)
     h_binary = np.zeros_like(h_channel)
     h_binary[(h_channel > h_thresh[0]) & (h_channel <= h_thresh[1])] = 1
-    scaled_h_binary = np.uint8(255*h_binary/np.max(h_binary))
 
     # Grayscale image
     # NOTE: we already saw that standard grayscaling lost color information for the lane lines
     # Explore gradients in other colors spaces / color channels to see what might work better
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
-    # Sobel x
-    abs_sobelx = np.absolute(cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=sobel_kernel)) # Take the derivative in x
-    abs_sobely = np.absolute(cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)) # Take the derivative in y
+    ### 1. start Absolute Sobel
+    # get x gradient
+    sobel_1 = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize = sobel_kernel)
+    abs_sobel_x = np.absolute(sobel_1)
+    scaled_sobel_x = np.uint8(255*abs_sobel_x/np.max(abs_sobel_x))
+    binary_output_x = np.zeros_like(scaled_sobel_x)
+    binary_output_x[(scaled_sobel_x >= 10) & (scaled_sobel_x <= 100)] = 255
+    
+    # get y gradient
+    abs_sobel_y = np.absolute(cv2.Sobel(gray, cv2.CV_32F, 0, 1))#, ksize = sobel_kernel))
+    scaled_sobel_y = np.uint8(255*abs_sobel_y/np.max(abs_sobel_y))
+    binary_output_y = np.zeros_like(scaled_sobel_y)
+    binary_output_y[(scaled_sobel_y >= 50) & (scaled_sobel_y <= 150)] = 255
 
-    scaled_sobelx = np.uint8(255*abs_sobelx/np.max(abs_sobelx))
-#    cv2.imshow("debug1x", scaled_sobelx)    
-    scaled_sobely = np.uint8(255*abs_sobely/np.max(abs_sobely))
-#    cv2.imshow("debug1y", scaled_sobely)
-
+    ### end Absolute Sobel
+    
+    ### 2. start Magnitude Sobel
+    abs_sobelx = np.absolute(cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=sobel_kernel)) # Take the derivative in x
+    abs_sobely = np.absolute(cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=sobel_kernel)) # Take the derivative in y
     sobelx_sqd = abs_sobelx ** 2
     sobely_sqd = abs_sobely ** 2
     # 3) Calculate the magnitude 
     sobel_sqd = (sobelx_sqd + sobely_sqd) ** 0.5
     # 4) Scale to 8-bit (0 - 255) then convert to type = np.uint8
     scaled_sobelxy = np.uint8(255*sobel_sqd/np.max(sobel_sqd))
-
-    # Threshold xy gradient
     sxy_binary = np.zeros_like(scaled_sobelxy)
     sxy_binary[(scaled_sobelxy >= thresh[0]) & (scaled_sobelxy <= thresh[1])] = 1
     scaled_sxy_binary = np.uint8(255*sxy_binary/np.max(sxy_binary))
 
+    ### end Magnitude Sobel
+
+    ### 3. start Direction Sobel
+    dir_sobel_x = cv2.Sobel(scaled_s_binary, cv2.CV_32F, 1, 0, ksize=sobel_kernel)
+    dir_sobel_y = cv2.Sobel(scaled_s_binary, cv2.CV_32F, 0, 1, ksize=sobel_kernel)
+    abs_grad = np.arctan2(np.absolute(dir_sobel_y), np.absolute(dir_sobel_x))
+    dir_binary = np.zeros_like(abs_grad)
+    dir_binary[(abs_grad >= 0.6) & (abs_grad <= 1.4)] = 1
+
+    ### end Direction Sobel
+
     # Combine the two binary thresholds
     combined_binary = np.zeros_like(sxy_binary)
-    combined_binary[(s_binary == 1) | (scaled_h_binary == 1) |  (scaled_sxy_binary == 1)] = 1
+    combined_binary[
+            ((binary_output_x   == 255) & (binary_output_y   == 255)) |  #1.2.3_4_
+ #           ((binary_output_x   == 255) & (scaled_sxy_binary >  1 )) |  #1.2_3.4_
+#            ((binary_output_x   == 255) & (dir_binary        == 1)) |  #1.2_3_4.
+#            ((binary_output_y   == 255) & (scaled_sxy_binary >  1)) |  #1_2.3.4_
+#            ((binary_output_y   == 255) & (dir_binary        == 1)) |  #1_2.3_4.
+            ((scaled_sxy_binary >  1  ) & (dir_binary        == 1))   #1_2_3.4.
+
+            ] = 1
+#    combined_binary[(s_binary == 1) | (scaled_h_binary == 1) |  (scaled_sxy_binary == 1)] = 1
     scaled_combined_binary = np.uint8(255*combined_binary/np.max(combined_binary))
+
+#    while(1):
+#    cv2.imshow("img", img)
+#    cv2.imshow("s_channel", s_channel)
+#    cv2.imshow("gray", gray)
+#    cv2.imshow("sobel_1", sobel_1)
+#    cv2.imshow("abs_sobel_x", abs_sobel_x)
+#    cv2.imshow("scaled_sobel_x", scaled_sobel_x)
+#    cv2.imshow("binary_output_x", binary_output_x)
+#    cv2.imshow("binary_output_y", binary_output_y)
+#    cv2.imshow("scaled_sxy_binary", scaled_sxy_binary)
+#    cv2.imshow("dir_binary", dir_binary)
+#    cv2.imshow("scaled_combined_binary", scaled_combined_binary)
+#    k = cv2.waitKey(33)
+##    if k==27:    # Esc key to stop
+#        break
 
     plot = False
     # Ploting both images Original and Binary
     if(plot):
-        f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20,10))
-        ax1.set_title('Undistorted/Color')
-        ax1.imshow(img)    
-        ax2.set_title('Binary/Combined S channel and gradient thresholds')
-        ax2.imshow(scaled_combined_binary, cmap='gray')
+        f, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20,10))
+        ax1.set_title('binary_output_x')
+        ax1.imshow(binary_output_x, cmap='gray')
+        ax2.set_title('scaled_sobel_x')
+        ax2.imshow(scaled_sobel_x)  
+        ax3.set_title('binary_output_x')
+        ax3.imshow(binary_output_x)
         plt.show()
 
     return(scaled_combined_binary)
@@ -149,10 +193,10 @@ def calculate_M(image, x, y) :
     global_M = cv2.getPerspectiveTransform(persp, birdseye)
     return global_M
 
-def corner_unwarp(image) :
+def corner_unwarp(image, M, image_size) :
     return cv2.warpPerspective(image, M, (image_size), flags=cv2.WARP_FILL_OUTLIERS+cv2.INTER_CUBIC)
 
-def corner_warp(image) :
+def corner_warp(image, M, warp_size) :
     return cv2.warpPerspective(image, M, (warp_size), flags=cv2.WARP_FILL_OUTLIERS + cv2.INTER_CUBIC+cv2.WARP_INVERSE_MAP)
 
 #     Detect lane pixels and fit to find the lane boundary.
@@ -171,9 +215,9 @@ def find_lane_pixels(binary_warped):
     # Choose the number of sliding windows
     nwindows = 15
     # Set the width of the windows +/- margin
-    margin = 150
+    margin = 180
     # Set minimum number of pixels found to recenter window
-    minpix = 80
+    minpix = 40
 
     # Set height of windows - based on nwindows above and image shape
     window_height = np.int(binary_warped.shape[0]//nwindows)
@@ -240,10 +284,14 @@ def fit_polynomial(binary_warped):
     # Find our lane pixels first
     leftx, lefty, rightx, righty, left_lane_inds, right_lane_inds, out_img = find_lane_pixels(binary_warped)
 
+    left_fit = np.zeros(leftx.size, dtype=np.float32)
+    right_fit = np.zeros(rightx.size, dtype=np.float32)
     ### TO-DO: Fit a second order polynomial to each using `np.polyfit` ###
+    #try:
     left_fit = np.polyfit(lefty, leftx, 2)
+#        try:
     right_fit = np.polyfit(righty, rightx, 2)
-    
+            
     # Generate x and y values for plotting
     ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
     try:
@@ -254,6 +302,10 @@ def fit_polynomial(binary_warped):
         print('The function failed to fit a line!')
         left_fitx = 1*ploty**2 + 1*ploty
         right_fitx = 1*ploty**2 + 1*ploty
+#        except TypeError:
+#            print("Couldn't fit a right function")
+#    except TypeError:
+#        print("Couldn't fit a left function")
 
     ## Visualization ##
     # Colors in the left and right lane regions
@@ -294,50 +346,81 @@ def fill_poly(img, left, right):
 def add_poly_to_image(image1, image2) :
     return image1 + image2
 
-
-cv2.destroyAllWindows()
-inputs = "test_images"
-outputs = "output_images"
-
-### process the images
-for image_file in os.listdir(inputs) :
-    print(image_file)
-
-    img = cv2.imread(os.path.join(inputs, image_file))
+def process_image(img):
     #cv2.imshow("original image", img)
     #print(img.shape[::-1])
     image_size = (img.shape[::-1][1], img.shape[::-1][2])
-    M = calculate_M(img, image_size[0], image_size[1])
-    result = thresholding(img, thresh=(20,90), sobel_kernel=3)
-    top_down = corner_unwarp(result)
-    warp_size = top_down.shape[::-1]
     #print(image_size)
-    #print(warp_size)
+    M = calculate_M(img, image_size[0], image_size[1])
+    
+#    top_down_1 = corner_unwarp(img, M, image_size)
+#    thresholding_1 = thresholding(top_down_1, thresh=(20,90), sobel_kernel=3)
+#    out_img, left_fitx, left_lane_inds, right_fitx, right_lane_inds, ploty = fit_polynomial(thresholding_1)
+#    warp_size = thresholding_1.shape[::-1]
+
+    result = thresholding(img, thresh=(20,90), sobel_kernel=3)
+    top_down = corner_unwarp(result, M, image_size)
+    warp_size = top_down.shape[::-1]
     out_img, left_fitx, left_lane_inds, right_fitx, right_lane_inds, ploty = fit_polynomial(top_down)
+
     left_curverad, right_curverad = compute_curvature(left_fitx, right_fitx, np.array(left_fitx), right_fitx, ploty )
     left_points = np.vstack((np.array(left_fitx), ploty)).T
     left_points = left_points.reshape((-1,1,2))
     right_points = np.vstack((np.array(right_fitx), ploty)).T
     right_points = right_points.reshape((-1,1,2))
     
-    warp_orig = corner_unwarp(img)
+    warp_orig = corner_unwarp(img, M, image_size)
     with_poly = fill_poly(warp_orig, left_points, right_points)
-    rewarped_image = corner_warp(with_poly)
+    rewarped_image = corner_warp(with_poly, M, warp_size)
     
     output_image = np.copy(rewarped_image)
     cv2.addWeighted(rewarped_image, 0.5,img, 0.5, 0.0, output_image)
-    #added_image = add_poly_to_image(img, rewarped_image)
-    #print(returned_image.size)
-
-    cv2.imshow("lane_curve_w_poly", output_image)
-    while(1):
+    while(0):
+        cv2.imshow("original image", img)
+#        cv2.imshow("top_down_1", top_down_1)
+#        cv2.imshow("thresholding_1", thresholding_1)
+        cv2.imshow("threshold_orig", result)
+        cv2.imshow("out_img", out_img)
+        cv2.imshow("warp_orig", warp_orig)
+        cv2.imshow("with_poly", with_poly)
+        cv2.imshow("output image", output_image)
         k = cv2.waitKey(33)
         if k==27:    # Esc key to stop
             break
     cv2.destroyAllWindows()
+    return output_image
+
+def process_video(img):
+    img = img[..., ::-1]
+    value = process_image(img)
+    return value[..., ::-1]
+
+
+#cv2.destroyAllWindows()
+inputs = "test_images"
+outputs = "output_images"
+
+while(0):
+    ### process the images
+    for image_file in os.listdir(inputs) :
+        img = cv2.imread(os.path.join(inputs, image_file))
+        output_image = process_image(img)
     
-    #print(os.path.join(outputs, "output_" + image_file))
-    cv2.imwrite( os.path.join(outputs, "output_" + image_file), output_image );
-    #img = lanes_detected.process(img, True, show_period = 1, blocking=False)
+    #    cv2.imshow("lane_curve_w_poly", output_image)
+        #print(os.path.join(outputs, "output_" + image_file))
+        cv2.imwrite( os.path.join(outputs, "output_" + image_file), output_image );
+        #img = lanes_detected.process(img, True, show_period = 1, blocking=False)
 
 ### process the videos
+from moviepy.editor import VideoFileClip
+input_videos = ['project_video.mp4']#, 'harder_challenge_video.mp4', 'challenge_video.mp4', ]
+output_path = "output_videos"
+
+for file in input_videos :
+    video = VideoFileClip(file)#.subclip(24,25)
+    outclip = video.fl_image(process_video)
+    outclip.write_videofile(os.path.join(output_path, "output_" + file), audio=False)
+
+    
+    
+    
