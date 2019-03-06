@@ -29,7 +29,7 @@ The goals / steps of this project are the following:
 
 [window]: ./output_images/windowing_screenshot_07.03.2019.png "Warped Bounding Box Filled"
 
-[test3]: ./output_images/output_image.jpg "Filled Lane Lines"
+[test3]: ./output_images/output_image.png "Filled Lane Lines"
 [video1]: ./output_videos/output_project_video.mp4 "Video"
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
@@ -151,7 +151,7 @@ Similar logic was used to calculate the offset, where the number of pixels was m
 
 Post calculation of the lane curvatures, the `fill_poly` function (lines #375 to #380) was used to fill in between those lines, thus creating a filled shape that should take up the entire lane in front of the vehicle.
 
-![alt text][test3]
+![Final Image][test3]
 
 ---
 
