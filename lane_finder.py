@@ -321,19 +321,29 @@ def fit_polynomial(binary_warped):
 #     Determine the curvature of the lane and vehicle position with respect to center.
 def compute_curvature(left_fit, right_fit, leftx, rightx, ploty): #, left_fitx, right_fitx): #, leftx, lefty, rightx, righty):
  
-        # Define conversions in x and y from pixels space to meters
-        m_per_y_pix = 30.0/720 # meters per pixel in y dimension
-        m_per_x_pix = 3.7/700 # meters per pixel in x dimension
+    # Define conversions in x and y from pixels space to meters
+    m_per_y_pix = 30.0/720 # meters per pixel in y dimension
+    m_per_x_pix = 3.7/700 # meters per pixel in x dimension
  
-        y_eval = np.max(ploty)
+    y_eval = np.max(ploty)
  
-        left_fit_cr = np.polyfit((ploty*m_per_y_pix), (leftx*m_per_x_pix), 2, 2)
-        right_fit_cr = np.polyfit(ploty*m_per_y_pix, rightx*m_per_x_pix, 2)
+    left_fit_cr = np.polyfit((ploty*m_per_y_pix), (leftx*m_per_x_pix), 2, 2)
+    right_fit_cr = np.polyfit(ploty*m_per_y_pix, rightx*m_per_x_pix, 2)
 
-        left_curverad = ((1 + (2*left_fit_cr[0]*y_eval + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
-        right_curverad = ((1 + (2*right_fit_cr[0]*y_eval + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
+    left_curverad = ((1 + (2*left_fit_cr[0]*y_eval + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
+    right_curverad = ((1 + (2*right_fit_cr[0]*y_eval + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
  
-        return left_curverad, right_curverad
+    return (left_curverad + right_curverad) / 2
+
+def compute_offset(left_fit, right_fit, leftx, rightx, ploty):
+    m_per_y_pix = 30.0/720 # meters per pixel in y dimension
+    m_per_x_pix = 3.7/700 # meters per pixel in x dimension
+    
+    centre = abs(640.0 - ((rightx[-1]+leftx[-1])/2))
+#    print(rightx)
+#    print(rightx[-1])
+    return centre * m_per_x_pix
+#    shift_left = np.polyval()
 
 #     Warp the detected lane boundaries back onto the original image.
 def fill_poly(img, left, right):
@@ -363,9 +373,12 @@ def process_image(img):
     warp_size = top_down.shape[::-1]
     out_img, left_fitx, left_lane_inds, right_fitx, right_lane_inds, ploty = fit_polynomial(top_down)
 
-    left_curverad, right_curverad = compute_curvature(left_fitx, right_fitx, np.array(left_fitx), right_fitx, ploty )
+    curverad = compute_curvature(left_fitx, right_fitx, np.array(left_fitx), right_fitx, ploty )
+    centre = compute_offset(left_fitx, right_fitx, np.array(left_fitx), right_fitx, ploty )
+        
     left_points = np.vstack((np.array(left_fitx), ploty)).T
     left_points = left_points.reshape((-1,1,2))
+
     right_points = np.vstack((np.array(right_fitx), ploty)).T
     right_points = right_points.reshape((-1,1,2))
     
@@ -375,6 +388,18 @@ def process_image(img):
     
     output_image = np.copy(rewarped_image)
     cv2.addWeighted(rewarped_image, 0.5,img, 0.5, 0.0, output_image)
+    cv2.putText(output_image, "Road curvature: {:6.2f}m".format(curverad), (420, 50), cv2.FONT_HERSHEY_PLAIN, fontScale=2.5,
+                thickness=5, color=(255, 255, 255))
+    if centre > 640 :
+        cv2.putText(output_image, "Offset right of centre: {:6.2f}m".format(centre), (420, 100), cv2.FONT_HERSHEY_PLAIN, fontScale=2.5,
+                thickness=5, color=(255, 255, 255))
+    elif centre < 640 :
+        cv2.putText(output_image, "Offset left of centre: {:6.2f}m".format(centre), (420, 100), cv2.FONT_HERSHEY_PLAIN, fontScale=2.5,
+                thickness=5, color=(255, 255, 255))
+    else :
+        cv2.putText(output_image, "Vehicle in centre!", (420, 100), cv2.FONT_HERSHEY_PLAIN, fontScale=2.5,
+                thickness=5, color=(255, 255, 255))
+    
     while(0):
         cv2.imshow("original image", img)
 #        cv2.imshow("top_down_1", top_down_1)
@@ -400,27 +425,23 @@ def process_video(img):
 inputs = "test_images"
 outputs = "output_images"
 
-while(0):
-    ### process the images
-    for image_file in os.listdir(inputs) :
-        img = cv2.imread(os.path.join(inputs, image_file))
-        output_image = process_image(img)
-    
-    #    cv2.imshow("lane_curve_w_poly", output_image)
-        #print(os.path.join(outputs, "output_" + image_file))
-        cv2.imwrite( os.path.join(outputs, "output_" + image_file), output_image );
-        #img = lanes_detected.process(img, True, show_period = 1, blocking=False)
+
+### process the images
+for image_file in os.listdir(inputs) :
+    img = cv2.imread(os.path.join(inputs, image_file))
+    output_image = process_image(img)
+
+#    cv2.imshow("lane_curve_w_poly", output_image)
+    #print(os.path.join(outputs, "output_" + image_file))
+    cv2.imwrite( os.path.join(outputs, "output_" + image_file), output_image );
+    #img = lanes_detected.process(img, True, show_period = 1, blocking=False)
 
 ### process the videos
 from moviepy.editor import VideoFileClip
-input_videos = ['project_video.mp4']#, 'harder_challenge_video.mp4', 'challenge_video.mp4', ]
+input_videos = ['project_video.mp4', 'harder_challenge_video.mp4', 'challenge_video.mp4', ]
 output_path = "output_videos"
 
 for file in input_videos :
     video = VideoFileClip(file)#.subclip(24,25)
     outclip = video.fl_image(process_video)
     outclip.write_videofile(os.path.join(output_path, "output_" + file), audio=False)
-
-    
-    
-    
