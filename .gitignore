@@ -102,3 +102,7 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+output_videos/broken\.mp4
+
+output_videos/output_project_video backup\.mp4
