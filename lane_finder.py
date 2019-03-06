@@ -73,11 +73,24 @@ for fname in images:
                                     [offset, img_size[1]-offset]])
         # d) use cv2.getPerspectiveTransform() to get M, the transform matrix
         M = cv2.getPerspectiveTransform(src, dst)
-
+        #print(img.shape)
+        #print(gray.shape)
         undist = cal_undistort(gray, objpoints, imgpoints)
 
         # e) use cv2.warpPerspective() to warp your image to a top-down view
         warped = cv2.warpPerspective(undist, M, img_size)
+    
+    plot = False
+    # Ploting both images Original and Binary
+    if(plot):
+        f, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20,10))
+        ax1.set_title('original')
+        ax1.imshow(img)
+        ax2.set_title('gray')
+        ax2.imshow(gray, cmap='gray')  
+        ax3.set_title('undist')
+        ax3.imshow(undist)
+        plt.show()
 
 #     Use color transforms, gradients, etc., to create a thresholded binary image.
 def thresholding(img, thresh=(20,100), sobel_kernel=3, s_thresh=(170,255)):
@@ -101,7 +114,20 @@ def thresholding(img, thresh=(20,100), sobel_kernel=3, s_thresh=(170,255)):
     # NOTE: we already saw that standard grayscaling lost color information for the lane lines
     # Explore gradients in other colors spaces / color channels to see what might work better
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-
+    undist = cal_undistort(gray, objpoints, imgpoints)
+    
+    plot = True
+    # Ploting both images Original and Binary
+    if(plot):
+        f, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20,10))
+        ax1.set_title('original')
+        ax1.imshow(img[..., ::-1], cmap='gray')
+        ax2.set_title('gray')
+        ax2.imshow(gray, cmap='gray')  
+        ax3.set_title('undist')
+        ax3.imshow(undist, cmap='gray')
+        plt.show()
+    
     ### 1. start Absolute Sobel
     # get x gradient
     sobel_1 = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize = sobel_kernel)
@@ -436,12 +462,12 @@ for image_file in os.listdir(inputs) :
     cv2.imwrite( os.path.join(outputs, "output_" + image_file), output_image );
     #img = lanes_detected.process(img, True, show_period = 1, blocking=False)
 
-### process the videos
-from moviepy.editor import VideoFileClip
-input_videos = ['project_video.mp4', 'harder_challenge_video.mp4', 'challenge_video.mp4', ]
-output_path = "output_videos"
+#### process the videos
+#from moviepy.editor import VideoFileClip
+#input_videos = ['project_video.mp4', 'harder_challenge_video.mp4', 'challenge_video.mp4', ]
+#output_path = "output_videos"
 
-for file in input_videos :
-    video = VideoFileClip(file)#.subclip(24,25)
-    outclip = video.fl_image(process_video)
-    outclip.write_videofile(os.path.join(output_path, "output_" + file), audio=False)
+#for file in input_videos :
+#    video = VideoFileClip(file)#.subclip(24,25)
+#    outclip = video.fl_image(process_video)
+#    outclip.write_videofile(os.path.join(output_path, "output_" + file), audio=False)
