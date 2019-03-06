@@ -25,10 +25,12 @@ The goals / steps of this project are the following:
 [warp]: ./output_images/warp_orig_screenshot_07.03.2019.png "Warped Bounding Box"
 [thresh]: ./output_images/threshold_orig_screenshot_07.03.2019.png "Thresholds"
 
-[image4]: ./examples/warped_straight_lines.jpg "Warp Example"
-[image5]: ./examples/color_fit_lines.jpg "Fit Visual"
-[image6]: ./examples/example_output.jpg "Output"
-[video1]: ./project_video.mp4 "Video"
+[warp_filled]: ./output_images/warp_shape_filled_poly_screenshot_07.03.2019.png "Warped Bounding Box Filled"
+
+[window]: ./output_images/windowing_screenshot_07.03.2019.png "Warped Bounding Box Filled"
+
+[test3]: ./output_images/output_image.jpg "Filled Lane Lines"
+[video1]: ./output_videos/output_project_video.mp4 "Video"
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
 
@@ -70,18 +72,27 @@ Essentially an image is read in, and passed to the thresholding function. During
 #### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
 
 The thresholding function is broken down into sections.
-##### 1. Converting the original image to HLS space (lines #99 - #107)
-##### 2. Converting the original image to grayscale (lines #116 - #117)
-##### 3. Calculating Absolute X and Y Sobel values (lines #133 - #145)
-##### 4. Calculating the Magnitude Sobel values (lines #148 - #158)
-##### 5. Calculating the Directional Sobel values (lines #162 - #167)
-##### 6. Output the thresholded image (lines #162 - #167)
+ - 1. Converting the original image to HLS space (lines #99 - #107)
+ - 2. Converting the original image to grayscale (lines #116 - #117)
+ - 3. Calculating Absolute X and Y Sobel values (lines #133 - #145)
+ - 4. Calculating the Magnitude Sobel values (lines #148 - #158)
+ - 5. Calculating the Directional Sobel values (lines #162 - #167)
+ - 6. Output the thresholded image (lines #162 - #167)
+ 
 The rule of which thresholding to use was either use where abs values of X and Y overlapped (step 3), or where the Magnitude and Directional values overlapped. Presumably it will always take the absolute values overlapping over a potentially better direction/magnitude combo, due to the ordering. Some work could be done to ascertain which is better.
 
 A specific timesink for me was that some images, and previous examples in the notes had scaled thresholds = 1, whereas some of my images were 0-1 scale and some were 0-255.
 As such, some of my binarisations needed to be `=1` and some were `=255`. This is a quick fix approach. Going forward, some work will be done to ensure all images are similarly scaled.
 
 ![Threshold Image][thresh]
+
+##### To Improve
+  Thresholding:
+  The order of the thresholding calculation is worth exploring and determining which combination of thresholds provides the most information gained. Eg, sometimes it appears an absolute X value with a Magnitude calulation captured a lot of the information required. Optimising code to take the correct ones could be improved.
+  Scaling:
+  Ensuring the images are all scaled correctly. Matplotlit and OpenCV also read files in different formats, so ensuring a standardisation process for all images would be useful.
+  Dynamic:
+  Perhaps exploring some dynamic iteration of thresholds used to determine the most valid pixels of interest. This is potentially useful, when the colours change rapidly in an image (shadows, changing between road surfaces) which my algorithm struggled with (minorly for the project image, quite drastically for the hard challenge)
 
 #### 3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 
@@ -91,36 +102,74 @@ These are called to change to a birdseye view, and back to perspective view resp
 
 ![Warp of the Bounding Box][warp]
 
-#### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
+##### To Improve
+  Bounding Box:
+  The bounding box approach I used is accurate for gently curving and straight roads. However this needs further work for sharp cornering and more dynamic surfaces.
+  Perspective of the Bounding Box:
+  This may become less valid if the size of the bounding box is dramatically increased. Also, focussing only on the immediate area ignores the complexities around engaging traffic, which will be a concern when the bounding box increases or disappears.
 
-Then I did some other stuff and fit my lane lines with a 2nd order polynomial kinda like this:
+#### 4. Describe how (and identify where in your code) you identified lane-line pixels ...
+From lines #229 to #306 the calculations for the lane lines occurs.
+Using windowing histograms on the warped thresholded image enabled me to calculate the location of the most common pixels in the image. This only works if the thresholding applied previously only (as much as possible) returns the items of interest. Therefore if there is a lot of noise in the thresholding image, or very little detail, the histogram detection is less accurate.
+In this instance the number of windows chosen was arbitrarily 15, and this seemed to work. When the thresholding function performs poorly more pixels are needed to produce an accurate measure (minpix = 40) and the windows can be made larger to take in more pixels (margin = 180)
 
-![alt text][image5]
+` for window in range(nwindows) : `
+enables us to iterate through the windows, and use the previous window as a starting point for the next, to reduce calculation times.
+
+![windows function histogram calc][window]
+
+##### To improve
+  The calculation is highly reliant on the accuracy of the thresholding and the results from that. The more accurate the threshold, the more strict the criterion for entering into the window.
+  One possible scenario is to determine which line side is more accurate and offset the other side from the accurate side, to ensure you are capturing the correct pixels. This might require a 'confidence level' of which one is correct, but worth investigating.
+
+#### ... and fit their positions with a polynomial?
+
+The fit_polynomial function is used to take the output from the windowing and using numpy, fit a polynomial to the points.
+The function starts off with defining empty array as the left and right fit, which solved some issues, when there were no points recognised on one side or another and the fit function cannot run.
+
+![warped bounding box filled][warp_filled]
+
+##### To Improve
+  Adding more rigour around safely exiting when the polynomial doesn't predict is a good programming practise to add in later.
+  Again, ensuring that the left and right lane lines are approximately equal in curvature would be useful to ensure that some drastic errors aren't occurring.
+  Saving and persisting the lane lines and points, and the curvatures and using that from one from to the next would be quite useful and potentially reduce the need to wholely calculate the curvature each time.
+  Another useful component might be to try to predict sections of road as distinct pieces. Knowing that you are driving on a straight bit, but some curvature is approaching in X metres, is more useful than fitting a spline to a section of road than has distinct phases.
 
 #### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
 
-I did this in lines # through # in my code in `my_other_file.py`
+The functions compute_curvature (lines #348 - #362) and compute_offset (lines #364 - #371) do what their titles say.
+Taking the fitted polynomial line as calculated in the previous steps, again using numpy polyfit, I calculated the curvature of the arc based on the number of pixels in the image.
+By extrapolating this curve out, and using the image pixel to metre conversion, I could approximate the curvature in metres of the arc of sections of road. (line #356 and #359)
+This obviously makes more sense when the lane is visibly curved but the algorith also calculates this on straight sections, as it attempts to fit a second order polynomial to an almost straight line segment.
+
+Similar logic was used to calculate the offset, where the number of pixels was multiplied by a factor to determine the distance from the average of the left and right curved lane lines, bounding the vehicle.
+
+##### To Improve
+  Some sense checking of the curvature numbers from the previous frame would be useful, and something nicer to the eye than the raw numbers, as they change too rapidly with each frame to be of any real value. Perhaps a time-series calculation to get an average curature, etc, over x previous time iterations.
 
 #### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
 
-I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
+Post calculation of the lane curvatures, the `fill_poly` function (lines #375 to #380) was used to fill in between those lines, thus creating a filled shape that should take up the entire lane in front of the vehicle.
 
-![alt text][image6]
+![alt text][test3]
 
 ---
+
 
 ### Pipeline (video)
 
 #### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
 
-Here's a [link to my video result](./project_video.mp4)
+Here's a [link to my video result](./output_videos/output_project_video.mp4)
 
 ---
+##### To Improve
+  The algorithm provides well for most of the video. There is a moment or two during the transition between road surface that the algorithm doesn't fully cope with, but this is immediately rectified.
 
 ### Discussion
 
 #### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-Thresholding:
-Presumably it will always take the absolute values overlapping over a potentially better direction/magnitude combo, due to the ordering. Some work could be done to ascertain which is better.
-Scaling:
+These are discussed at the relevant sections.
+Overall the algorithm performed ok with the images, and medium-to-well on the project video. It did however perform quite poorly on the challenge videos due to a number of factors, which I have touched on above.
+The bounding box limits the amount of curvature than we can calculate as we travel. Some more work is needed around the thresholding, and different value potentially under different lighting conditions would be a useful piece of investigation.
