@@ -43,11 +43,11 @@ The goals / steps of this project are the following:
 #### 1. Provide a Writeup / README that includes all the rubric points and how you addressed each one.  
 
 You're reading it!
-The entire project logic is contained in [lane_finder.py](link).
+The entire project logic is contained in [lane_finder.py](./lane_finder.py).
 In this file, I have calculated the calibration matrix, then proceeded to create a sequence of functions for each needed component of the process.
-At the end of the file, lines #359 - #416 contains a function that contains all the required function in a logical order.
-Lines 425 - 437 calls the function for files
-Lines 440 - 447 calls the function for videos
+At the end of the file, lines #385 - #442 contains a function that contains all the required function in a logical order.
+Lines #456 - #464 calls the function for files
+Lines #467 - #474 calls the function for videos
 
 ### Camera Calibration
 
@@ -78,7 +78,7 @@ The thresholding function is broken down into sections.
  - 4. Calculating the Magnitude Sobel values (lines #148 - #158)
  - 5. Calculating the Directional Sobel values (lines #162 - #167)
  - 6. Output the thresholded image (lines #162 - #167)
- 
+
 The rule of which thresholding to use was either use where abs values of X and Y overlapped (step 3), or where the Magnitude and Directional values overlapped. Presumably it will always take the absolute values overlapping over a potentially better direction/magnitude combo, due to the ordering. Some work could be done to ascertain which is better.
 
 A specific timesink for me was that some images, and previous examples in the notes had scaled thresholds = 1, whereas some of my images were 0-1 scale and some were 0-255.

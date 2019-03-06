@@ -2,9 +2,9 @@
 
 ###
 # Advanced Lane Finding Project
-# 
+#
 # The goals / steps of this project are the following:
-# 
+#
 # $    Compute the camera calibration matrix and distortion coefficients given a set of chessboard images.
 # $    Apply a distortion correction to raw images.
 #     Use color transforms, gradients, etc., to create a thresholded binary image.
@@ -46,7 +46,7 @@ ny = 6
 #def corners_unwarp(nx, ny) : #(img, nx, ny) : #, mtx, dist):
 for fname in images:
     img = cv2.imread(fname)
-    
+
 #    undist = cv2.undistort(img, mtx, dist, None, mtx)
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
     x = gray.shape[1]
@@ -79,7 +79,7 @@ for fname in images:
 
         # e) use cv2.warpPerspective() to warp your image to a top-down view
         warped = cv2.warpPerspective(undist, M, img_size)
-    
+
     plot = False
     # Ploting both images Original and Binary
     if(plot):
@@ -87,7 +87,7 @@ for fname in images:
         ax1.set_title('original')
         ax1.imshow(img)
         ax2.set_title('gray')
-        ax2.imshow(gray, cmap='gray')  
+        ax2.imshow(gray, cmap='gray')
         ax3.set_title('undist')
         ax3.imshow(undist)
         plt.show()
@@ -99,8 +99,8 @@ def thresholding(img, thresh=(20,100), sobel_kernel=3, s_thresh=(170,255)):
     hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
     h_channel = hls[:,:,0]
     s_channel = hls[:,:,2]
-    
-    
+
+
     s_binary = np.zeros_like(s_channel)
     s_binary[(s_channel > s_thresh[0]) & (s_channel <= s_thresh[1])] = 1
 
@@ -115,7 +115,7 @@ def thresholding(img, thresh=(20,100), sobel_kernel=3, s_thresh=(170,255)):
     # Explore gradients in other colors spaces / color channels to see what might work better
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     undist = cal_undistort(gray, objpoints, imgpoints)
-    
+
     plot = True
     # Ploting both images Original and Binary
     if(plot):
@@ -123,11 +123,11 @@ def thresholding(img, thresh=(20,100), sobel_kernel=3, s_thresh=(170,255)):
         ax1.set_title('original')
         ax1.imshow(img[..., ::-1], cmap='gray')
         ax2.set_title('gray')
-        ax2.imshow(gray, cmap='gray')  
+        ax2.imshow(gray, cmap='gray')
         ax3.set_title('undist')
         ax3.imshow(undist, cmap='gray')
         plt.show()
-    
+
     ### 1. start Absolute Sobel
     # get x gradient
     sobel_1 = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize = sobel_kernel)
@@ -135,7 +135,7 @@ def thresholding(img, thresh=(20,100), sobel_kernel=3, s_thresh=(170,255)):
     scaled_sobel_x = np.uint8(255*abs_sobel_x/np.max(abs_sobel_x))
     binary_output_x = np.zeros_like(scaled_sobel_x)
     binary_output_x[(scaled_sobel_x >= 10) & (scaled_sobel_x <= 100)] = 255
-    
+
     # get y gradient
     abs_sobel_y = np.absolute(cv2.Sobel(gray, cv2.CV_32F, 0, 1))#, ksize = sobel_kernel))
     scaled_sobel_y = np.uint8(255*abs_sobel_y/np.max(abs_sobel_y))
@@ -143,13 +143,13 @@ def thresholding(img, thresh=(20,100), sobel_kernel=3, s_thresh=(170,255)):
     binary_output_y[(scaled_sobel_y >= 50) & (scaled_sobel_y <= 150)] = 255
 
     ### end Absolute Sobel
-    
+
     ### 2. start Magnitude Sobel
     abs_sobelx = np.absolute(cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=sobel_kernel)) # Take the derivative in x
     abs_sobely = np.absolute(cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=sobel_kernel)) # Take the derivative in y
     sobelx_sqd = abs_sobelx ** 2
     sobely_sqd = abs_sobely ** 2
-    # 3) Calculate the magnitude 
+    # 3) Calculate the magnitude
     sobel_sqd = (sobelx_sqd + sobely_sqd) ** 0.5
     # 4) Scale to 8-bit (0 - 255) then convert to type = np.uint8
     scaled_sobelxy = np.uint8(255*sobel_sqd/np.max(sobel_sqd))
@@ -205,7 +205,7 @@ def thresholding(img, thresh=(20,100), sobel_kernel=3, s_thresh=(170,255)):
         ax1.set_title('binary_output_x')
         ax1.imshow(binary_output_x, cmap='gray')
         ax2.set_title('scaled_sobel_x')
-        ax2.imshow(scaled_sobel_x)  
+        ax2.imshow(scaled_sobel_x)
         ax3.set_title('binary_output_x')
         ax3.imshow(binary_output_x)
         plt.show()
@@ -269,21 +269,21 @@ def find_lane_pixels(binary_warped):
         win_xleft_high = leftx_current + margin  # Update this
         win_xright_low = rightx_current - margin # Update this
         win_xright_high = rightx_current + margin  # Update this
-        
+
         # Draw the windows on the visualization image
-        cv2.rectangle(out_img,(win_xleft_low,win_y_low),(win_xleft_high,win_y_high),(0,255,0), 2) 
-        cv2.rectangle(out_img,(win_xright_low,win_y_low),(win_xright_high,win_y_high),(0,255,0), 2) 
-        
+        cv2.rectangle(out_img,(win_xleft_low,win_y_low),(win_xleft_high,win_y_high),(0,255,0), 2)
+        cv2.rectangle(out_img,(win_xright_low,win_y_low),(win_xright_high,win_y_high),(0,255,0), 2)
+
         ### TO-DO: Identify the nonzero pixels in x and y within the window ###
-        good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & 
+        good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) &
         (nonzerox >= win_xleft_low) &  (nonzerox < win_xleft_high)).nonzero()[0]
-        good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & 
+        good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) &
         (nonzerox >= win_xright_low) &  (nonzerox < win_xright_high)).nonzero()[0]
-        
+
         # Append these indices to the lists
         left_lane_inds.append(good_left_inds)
         right_lane_inds.append(good_right_inds)
-        
+
         if len(good_left_inds) > minpix:
             leftx_current = np.int(np.mean(nonzerox[good_left_inds]))
         if len(good_right_inds) > minpix:
@@ -299,7 +299,7 @@ def find_lane_pixels(binary_warped):
 
     # Extract left and right line pixel positions
     leftx = nonzerox[left_lane_inds]
-    lefty = nonzeroy[left_lane_inds] 
+    lefty = nonzeroy[left_lane_inds]
     rightx = nonzerox[right_lane_inds]
     righty = nonzeroy[right_lane_inds]
 
@@ -317,7 +317,7 @@ def fit_polynomial(binary_warped):
     left_fit = np.polyfit(lefty, leftx, 2)
 #        try:
     right_fit = np.polyfit(righty, rightx, 2)
-            
+
     # Generate x and y values for plotting
     ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
     try:
@@ -346,25 +346,25 @@ def fit_polynomial(binary_warped):
 
 #     Determine the curvature of the lane and vehicle position with respect to center.
 def compute_curvature(left_fit, right_fit, leftx, rightx, ploty): #, left_fitx, right_fitx): #, leftx, lefty, rightx, righty):
- 
+
     # Define conversions in x and y from pixels space to meters
     m_per_y_pix = 30.0/720 # meters per pixel in y dimension
     m_per_x_pix = 3.7/700 # meters per pixel in x dimension
- 
+
     y_eval = np.max(ploty)
- 
+
     left_fit_cr = np.polyfit((ploty*m_per_y_pix), (leftx*m_per_x_pix), 2, 2)
     right_fit_cr = np.polyfit(ploty*m_per_y_pix, rightx*m_per_x_pix, 2)
 
     left_curverad = ((1 + (2*left_fit_cr[0]*y_eval + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
     right_curverad = ((1 + (2*right_fit_cr[0]*y_eval + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
- 
+
     return (left_curverad + right_curverad) / 2
 
 def compute_offset(left_fit, right_fit, leftx, rightx, ploty):
     m_per_y_pix = 30.0/720 # meters per pixel in y dimension
     m_per_x_pix = 3.7/700 # meters per pixel in x dimension
-    
+
     centre = abs(640.0 - ((rightx[-1]+leftx[-1])/2))
 #    print(rightx)
 #    print(rightx[-1])
@@ -388,7 +388,7 @@ def process_image(img):
     image_size = (img.shape[::-1][1], img.shape[::-1][2])
     #print(image_size)
     M = calculate_M(img, image_size[0], image_size[1])
-    
+
 #    top_down_1 = corner_unwarp(img, M, image_size)
 #    thresholding_1 = thresholding(top_down_1, thresh=(20,90), sobel_kernel=3)
 #    out_img, left_fitx, left_lane_inds, right_fitx, right_lane_inds, ploty = fit_polynomial(thresholding_1)
@@ -401,17 +401,17 @@ def process_image(img):
 
     curverad = compute_curvature(left_fitx, right_fitx, np.array(left_fitx), right_fitx, ploty )
     centre = compute_offset(left_fitx, right_fitx, np.array(left_fitx), right_fitx, ploty )
-        
+
     left_points = np.vstack((np.array(left_fitx), ploty)).T
     left_points = left_points.reshape((-1,1,2))
 
     right_points = np.vstack((np.array(right_fitx), ploty)).T
     right_points = right_points.reshape((-1,1,2))
-    
+
     warp_orig = corner_unwarp(img, M, image_size)
     with_poly = fill_poly(warp_orig, left_points, right_points)
     rewarped_image = corner_warp(with_poly, M, warp_size)
-    
+
     output_image = np.copy(rewarped_image)
     cv2.addWeighted(rewarped_image, 0.5,img, 0.5, 0.0, output_image)
     cv2.putText(output_image, "Road curvature: {:6.2f}m".format(curverad), (420, 50), cv2.FONT_HERSHEY_PLAIN, fontScale=2.5,
@@ -425,7 +425,7 @@ def process_image(img):
     else :
         cv2.putText(output_image, "Vehicle in centre!", (420, 100), cv2.FONT_HERSHEY_PLAIN, fontScale=2.5,
                 thickness=5, color=(255, 255, 255))
-    
+
     while(0):
         cv2.imshow("original image", img)
 #        cv2.imshow("top_down_1", top_down_1)
@@ -460,14 +460,13 @@ for image_file in os.listdir(inputs) :
 #    cv2.imshow("lane_curve_w_poly", output_image)
     #print(os.path.join(outputs, "output_" + image_file))
     cv2.imwrite( os.path.join(outputs, "output_" + image_file), output_image );
-    #img = lanes_detected.process(img, True, show_period = 1, blocking=False)
 
 #### process the videos
-#from moviepy.editor import VideoFileClip
-#input_videos = ['project_video.mp4', 'harder_challenge_video.mp4', 'challenge_video.mp4', ]
-#output_path = "output_videos"
+from moviepy.editor import VideoFileClip
+input_videos = ['project_video.mp4', 'harder_challenge_video.mp4', 'challenge_video.mp4', ]
+output_path = "output_videos"
 
-#for file in input_videos :
-#    video = VideoFileClip(file)#.subclip(24,25)
-#    outclip = video.fl_image(process_video)
-#    outclip.write_videofile(os.path.join(output_path, "output_" + file), audio=False)
+for file in input_videos :
+    video = VideoFileClip(file)#.subclip(24,25)
+    outclip = video.fl_image(process_video)
+    outclip.write_videofile(os.path.join(output_path, "output_" + file), audio=False)
