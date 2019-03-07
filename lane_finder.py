@@ -100,7 +100,6 @@ def thresholding(img, thresh=(20,100), sobel_kernel=3, s_thresh=(170,255)):
     h_channel = hls[:,:,0]
     s_channel = hls[:,:,2]
 
-
     s_binary = np.zeros_like(s_channel)
     s_binary[(s_channel > s_thresh[0]) & (s_channel <= s_thresh[1])] = 1
 
@@ -110,20 +109,25 @@ def thresholding(img, thresh=(20,100), sobel_kernel=3, s_thresh=(170,255)):
     h_binary = np.zeros_like(h_channel)
     h_binary[(h_channel > h_thresh[0]) & (h_channel <= h_thresh[1])] = 1
 
+    img2 = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
+    img2[:,:,0] = cv2.equalizeHist(img2[:,:,0])
+    img2 = cv2.cvtColor(img2, cv2.COLOR_YUV2RGB)
+    
+
     # Grayscale image
     # NOTE: we already saw that standard grayscaling lost color information for the lane lines
     # Explore gradients in other colors spaces / color channels to see what might work better
-    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    gray = cv2.cvtColor(img2, cv2.COLOR_RGB2GRAY)
     undist = cal_undistort(gray, objpoints, imgpoints)
-
-    plot = True
+    kernel = np.ones((3,3),np.uint8)
+    plot = False
     # Ploting both images Original and Binary
     if(plot):
         f, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20,10))
         ax1.set_title('original')
         ax1.imshow(img[..., ::-1], cmap='gray')
-        ax2.set_title('gray')
-        ax2.imshow(gray, cmap='gray')
+        ax2.set_title('img2')
+        ax2.imshow(img2)
         ax3.set_title('undist')
         ax3.imshow(undist, cmap='gray')
         plt.show()
@@ -135,13 +139,13 @@ def thresholding(img, thresh=(20,100), sobel_kernel=3, s_thresh=(170,255)):
     scaled_sobel_x = np.uint8(255*abs_sobel_x/np.max(abs_sobel_x))
     binary_output_x = np.zeros_like(scaled_sobel_x)
     binary_output_x[(scaled_sobel_x >= 10) & (scaled_sobel_x <= 100)] = 255
-
+    binary_output_x = cv2.morphologyEx(binary_output_x, cv2.MORPH_CLOSE, kernel)
     # get y gradient
     abs_sobel_y = np.absolute(cv2.Sobel(gray, cv2.CV_32F, 0, 1))#, ksize = sobel_kernel))
     scaled_sobel_y = np.uint8(255*abs_sobel_y/np.max(abs_sobel_y))
     binary_output_y = np.zeros_like(scaled_sobel_y)
     binary_output_y[(scaled_sobel_y >= 50) & (scaled_sobel_y <= 150)] = 255
-
+    gradient = cv2.morphologyEx(binary_output_y, cv2.MORPH_CLOSE, kernel)
     ### end Absolute Sobel
 
     ### 2. start Magnitude Sobel
@@ -156,7 +160,7 @@ def thresholding(img, thresh=(20,100), sobel_kernel=3, s_thresh=(170,255)):
     sxy_binary = np.zeros_like(scaled_sobelxy)
     sxy_binary[(scaled_sobelxy >= thresh[0]) & (scaled_sobelxy <= thresh[1])] = 1
     scaled_sxy_binary = np.uint8(255*sxy_binary/np.max(sxy_binary))
-
+    gradient = cv2.morphologyEx(scaled_sxy_binary, cv2.MORPH_CLOSE, kernel)
     ### end Magnitude Sobel
 
     ### 3. start Direction Sobel
@@ -165,7 +169,7 @@ def thresholding(img, thresh=(20,100), sobel_kernel=3, s_thresh=(170,255)):
     abs_grad = np.arctan2(np.absolute(dir_sobel_y), np.absolute(dir_sobel_x))
     dir_binary = np.zeros_like(abs_grad)
     dir_binary[(abs_grad >= 0.6) & (abs_grad <= 1.4)] = 1
-
+    gradient = cv2.morphologyEx(dir_binary, cv2.MORPH_CLOSE, kernel)
     ### end Direction Sobel
 
     # Combine the two binary thresholds
@@ -181,7 +185,8 @@ def thresholding(img, thresh=(20,100), sobel_kernel=3, s_thresh=(170,255)):
             ] = 1
 #    combined_binary[(s_binary == 1) | (scaled_h_binary == 1) |  (scaled_sxy_binary == 1)] = 1
     scaled_combined_binary = np.uint8(255*combined_binary/np.max(combined_binary))
-
+    
+    gradient = cv2.morphologyEx(scaled_combined_binary, cv2.MORPH_GRADIENT, kernel)
 #    while(1):
 #    cv2.imshow("img", img)
 #    cv2.imshow("s_channel", s_channel)
@@ -204,13 +209,13 @@ def thresholding(img, thresh=(20,100), sobel_kernel=3, s_thresh=(170,255)):
         f, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20,10))
         ax1.set_title('binary_output_x')
         ax1.imshow(binary_output_x, cmap='gray')
-        ax2.set_title('scaled_sobel_x')
-        ax2.imshow(scaled_sobel_x)
-        ax3.set_title('binary_output_x')
-        ax3.imshow(binary_output_x)
+        ax2.set_title('scaled_combined_binary')
+        ax2.imshow(scaled_combined_binary)
+        ax3.set_title('gradient')
+        ax3.imshow(gradient)
         plt.show()
 
-    return(scaled_combined_binary)
+    return(gradient)
 
 #     Apply a perspective transform to rectify binary image ("birds-eye view").
 def calculate_M(image, x, y) :
